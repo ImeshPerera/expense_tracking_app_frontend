@@ -15,14 +15,20 @@ import {
   Visibility,
   VisibilityOff,
   Email as EmailIcon,
-  Lock as LockIcon
+  Lock as LockIcon,
+  Person as PersonIcon,
+  CheckCircle as CheckCircleIcon
 } from "@mui/icons-material";
 import AuthSideIllustration from "../components/AuthSideIllustration";
 import Footer from "../components/Footer";
 
-function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function Register() {
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
@@ -37,14 +43,25 @@ function Login() {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const handleLogin = async (e) => {
+  const passwordsMatch = formData.password !== "" && formData.password === confirmPassword;
+  const passwordMismatch = confirmPassword !== "" && formData.password !== confirmPassword;
+
+  const handleRegister = async (e) => {
     e.preventDefault();
+    if (!passwordsMatch) {
+      setSnackbar({
+        open: true,
+        message: "Passwords do not match!",
+        severity: "error",
+      });
+      return;
+    }
 
     setSnackbar({
-      open: true,
-      message: "Not implemented yet. Please use the pre-seeded user:",
-      severity: "error",
-    });
+        open: true,
+        message: "Not implemented yet. Please use the pre-seeded user:",
+        severity: "error",
+      });
   };
 
   const greenTextFieldStyle = {
@@ -72,31 +89,53 @@ function Login() {
             </Box>
             <Box mb={1}>
               <Typography variant="h6" className="text-gray-500 mb-8 font-medium">
-                Welcome back! Please enter your details.
+                Create an account to start tracking.
               </Typography>
             </Box>
             <Box className="flex gap-6 mt-6 mb-4 border-b border-gray-100">
-              <Typography className="pb-2 font-bold cursor-pointer border-b-2 border-green-600 text-green-600">
+              <Typography
+                className="pb-2 font-medium cursor-pointer text-gray-400 hover:text-gray-600 transition"
+                onClick={() => navigate("/")}
+              >
                 Log In
               </Typography>
               <Typography
-                className="pb-2 font-medium cursor-pointer text-gray-400 hover:text-gray-600 transition"
-                onClick={() => navigate("/register")}
+                className="pb-2 font-bold cursor-pointer border-b-2 border-green-600 text-green-600"
               >
                 Sign Up
               </Typography>
             </Box>
 
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleRegister}>
+              <Box my={1}>
+                <TextField
+                  fullWidth
+                  label="Username"
+                  variant="outlined"
+                  placeholder="johndoe"
+                  value={formData.username}
+                  sx={greenTextFieldStyle}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PersonIcon className="text-gray-400" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
               <Box my={1}>
                 <TextField
                   fullWidth
                   label="Email Address"
                   variant="outlined"
                   placeholder="example@email.com"
-                  value={email}
+                  value={formData.email}
                   sx={greenTextFieldStyle}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -113,9 +152,10 @@ function Login() {
                   type={showPassword ? 'text' : 'password'}
                   variant="outlined"
                   placeholder="••••••••"
-                  value={password}
+                  value={formData.password}
                   sx={greenTextFieldStyle}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -132,10 +172,41 @@ function Login() {
                   }}
                 />
               </Box>
-              <Box className="flex justify-end">
-                <Typography variant="body2" className="text-green-600 font-semibold cursor-pointer hover:underline">
-                  Forgot Password?
-                </Typography>
+              <Box my={1}>
+                <TextField
+                  fullWidth
+                  label="Confirm Password"
+                  type={showPassword ? 'text' : 'password'}
+                  variant="outlined"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  error={passwordMismatch}
+                  helperText={
+                    passwordMismatch 
+                      ? "Passwords do not match" 
+                      : passwordsMatch 
+                        ? "Passwords match" 
+                        : ""
+                  }
+                  FormHelperTextProps={{
+                    sx: { color: passwordsMatch ? "#35b929 !important" : "" }
+                  }}
+                  sx={greenTextFieldStyle}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockIcon className="text-gray-400" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: passwordsMatch && (
+                      <InputAdornment position="end">
+                        <CheckCircleIcon sx={{ color: "#35b929" }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
               </Box>
 
               <Button
@@ -143,24 +214,30 @@ function Login() {
                 size="large"
                 variant="contained"
                 type="submit"
+                disabled={passwordMismatch}
                 sx={{
                   py: 1.5,
+                  mt: 2,
                   borderRadius: '12px',
                   textTransform: 'none',
                   fontSize: '1.1rem',
                   fontWeight: 'bold',
                   boxShadow: '0 4px 12px rgba(53, 185, 41, 0.2)',
                   backgroundColor: '#35b929',
-                  '&:hover': { backgroundColor: '#00a63e' }
+                  '&:hover': { backgroundColor: '#00a63e' },
+                  '&:disabled': { backgroundColor: '#ccc' }
                 }}
               >
-                Log In
+                Sign Up
               </Button>
             </form>
           </Box>
         </Box>
 
-        <AuthSideIllustration />
+        <AuthSideIllustration 
+          title="Start Your Journey Today."
+          subtitle="Join thousands of users who have mastered their finances with XPNZ."
+        />
       </Box>
 
       {/* Modern Snackbar Alert */}
@@ -185,4 +262,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default Register;

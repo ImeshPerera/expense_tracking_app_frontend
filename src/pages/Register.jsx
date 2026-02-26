@@ -56,12 +56,24 @@ function Register() {
       });
       return;
     }
-
-    setSnackbar({
+    try {
+      await API.post("/auth/register", formData);
+      setSnackbar({
         open: true,
-        message: "Not implemented yet. Please use the pre-seeded user:",
+        message: "Registration successful! Redirecting to login...",
+        severity: "success",
+      });
+
+      setTimeout(() => {
+        navigate("/");
+      }, 2000);
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Registration failed. Please try again.",
         severity: "error",
       });
+    }
   };
 
   const greenTextFieldStyle = {
@@ -79,8 +91,8 @@ function Register() {
 
   return (
     <Box className="min-h-screen flex flex-col">
-      <Box className="flex flex-1 flex-col md:flex-row bg-gray-50">
-        <Box className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white">
+      <Box className="flex flex-1 flex-col justify-center md:flex-row bg-gray-50 bg-gradient-to-br from-[#f0d5c2]/90 via-[#d6e9dd]/90 to-[#96f3d5]/90 md:bg-white">
+        <Box className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16">
           <Box className="w-full max-w-md">
             <Box mt={3} mb={1}>
               <Typography variant="h3" component="h1" fontWeight="800" className="text-green-600 my-4">
@@ -92,7 +104,7 @@ function Register() {
                 Create an account to start tracking.
               </Typography>
             </Box>
-            <Box className="flex gap-6 mt-6 mb-4 border-b border-gray-100">
+            <Box className="flex gap-6 mt-6 mb-4 border-b border-gray-300">
               <Typography
                 className="pb-2 font-medium cursor-pointer text-gray-400 hover:text-gray-600 transition"
                 onClick={() => navigate("/")}
@@ -182,10 +194,10 @@ function Register() {
                   value={confirmPassword}
                   error={passwordMismatch}
                   helperText={
-                    passwordMismatch 
-                      ? "Passwords do not match" 
-                      : passwordsMatch 
-                        ? "Passwords match" 
+                    passwordMismatch
+                      ? "Passwords do not match"
+                      : passwordsMatch
+                        ? "Passwords match"
                         : ""
                   }
                   FormHelperTextProps={{
@@ -234,7 +246,7 @@ function Register() {
           </Box>
         </Box>
 
-        <AuthSideIllustration 
+        <AuthSideIllustration
           title="Start Your Journey Today."
           subtitle="Join thousands of users who have mastered their finances with XPNZ."
         />

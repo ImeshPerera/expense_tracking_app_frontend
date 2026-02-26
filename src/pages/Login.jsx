@@ -39,12 +39,27 @@ function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    try {
+      const res = await API.post("/auth/login", { email, password });
+      localStorage.setItem("token", res.data.token);
 
-    setSnackbar({
-      open: true,
-      message: "Not implemented yet. Please use the pre-seeded user:",
-      severity: "error",
-    });
+      setSnackbar({
+        open: true,
+        message: "Login Successful! Redirecting...",
+        severity: "success",
+      });
+
+      // Redirect after a short delay to let the user see the success message
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1500);
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Login failed. Please check your credentials.",
+        severity: "error",
+      });
+    }
   };
 
   const greenTextFieldStyle = {
@@ -62,11 +77,11 @@ function Login() {
 
   return (
     <Box className="min-h-screen flex flex-col">
-      <Box className="flex flex-1 flex-col md:flex-row bg-gray-50">
-        <Box className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white">
+      <Box className="flex flex-1 flex-col justify-center md:flex-row bg-gray-50 bg-gradient-to-br from-[#f0d5c2]/90 via-[#d6e9dd]/90 to-[#96f3d5]/90 md:bg-white">
+        <Box className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16">
           <Box className="w-full max-w-md">
             <Box mt={3} mb={1}>
-              <Typography variant="h3" component="h1" fontWeight="800" className="text-green-600 my-4">
+              <Typography variant="h3" component="h1" fontWeight="800" className="text-green-600 my-4 text-center md:text-left">
                 XPNZ.
               </Typography>
             </Box>
@@ -75,7 +90,7 @@ function Login() {
                 Welcome back! Please enter your details.
               </Typography>
             </Box>
-            <Box className="flex gap-6 mt-6 mb-4 border-b border-gray-100">
+            <Box className="flex gap-6 mt-6 mb-4 border-b border-gray-300">
               <Typography className="pb-2 font-bold cursor-pointer border-b-2 border-green-600 text-green-600">
                 Log In
               </Typography>

@@ -28,10 +28,14 @@ import {
   useMediaQuery,
   Tooltip as MuiTooltip,
   Dialog,
+  TablePagination,
 } from "@mui/material";
 
 import dayjs from "dayjs";
+import isLeapYear from "dayjs/plugin/isLeapYear";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+
+dayjs.extend(isLeapYear);
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
 import {
@@ -52,9 +56,9 @@ import {
   ChevronLeft as PrevIcon,
   ChevronRight as NextIcon,
   CalendarMonth as CalendarIcon,
+  Add as AddIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
-
-const COLORS = ["#35b929", "#60a5fa", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
 function Dashboard() {
   const [expenses, setExpenses] = useState([]);
@@ -64,9 +68,29 @@ function Dashboard() {
     trend: []
   });
   const [editingExpense, setEditingExpense] = useState(null);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [period, setPeriod] = useState("month");
   const [refDate, setRefDate] = useState(dayjs()); // Selected reference date
+  
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  const dailyAverage = useMemo(() => {
+    const totalSpent = Number(stats.summary.total_spent || 0);
+    if (totalSpent === 0) return 0;
+
+    let days = 1;
+    if (period === "week") days = 7;
+    else if (period === "month") days = refDate.daysInMonth();
+    else if (period === "year") days = refDate.isLeapYear() ? 366 : 365;
+    else if (period === "day") days = 1;
+
+    return totalSpent / days;
+  }, [stats.summary.total_spent, period, refDate]);
+
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -126,16 +150,22 @@ function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       const range = getDateRange(period, refDate);
-      const params = { start: range.start, end: range.end };
+      const params = { 
+        start: range.start, 
+        end: range.end,
+        limit: rowsPerPage,
+        offset: page * rowsPerPage
+      };
 
       const [expRes, summaryRes, catRes, trendRes] = await Promise.all([
         API.get("/process/", { params }), // Filtered transactions
-        API.get("/process/stats/summary", { params }),
-        API.get("/process/stats/by-category", { params }),
-        API.get("/process/stats/trend", { params: { ...params, period: trendGrouping } })
+        API.get("/process/stats/summary", { params: { start: range.start, end: range.end } }),
+        API.get("/process/stats/by-category", { params: { start: range.start, end: range.end } }),
+        API.get("/process/stats/trend", { params: { start: range.start, end: range.end, period: trendGrouping } })
       ]);
 
       setExpenses(expRes.data.expenses || []);
+      setTotalRecords(summaryRes.data.count || 0);
 
       const formattedStats = {
         summary: summaryRes.data,
@@ -160,7 +190,16 @@ function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [period, refDate]);
+  }, [period, refDate, page, rowsPerPage]);
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   // Period label formatter
   const getPeriodLabel = () => {
@@ -182,6 +221,7 @@ function Dashboard() {
     await API.post("/process/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+    setIsExpenseModalOpen(false);
     fetchDashboardData();
   };
 
@@ -190,6 +230,7 @@ function Dashboard() {
       headers: { "Content-Type": "multipart/form-data" },
     });
     setEditingExpense(null);
+    setIsExpenseModalOpen(false);
     fetchDashboardData();
   };
 
@@ -226,6 +267,19 @@ function Dashboard() {
 
             <Box className="flex items-center gap-4">
               <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setIsExpenseModalOpen(true)}
+                sx={{
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  backgroundColor: '#35b929',
+                  '&:hover': { backgroundColor: '#00a63e' }
+                }}
+              >
+                {isMobile ? "Add" : "New Expense"}
+              </Button>
+              <Button
                 variant="outlined"
                 color="inherit"
                 startIcon={<LogoutIcon />}
@@ -246,9 +300,9 @@ function Dashboard() {
         {/* ---------- CONTENT ---------- */}
         <Container maxWidth="xl" className="py-8 flex-1">
           {/* ---------- HEADER & PERIOD SELECTOR ---------- */}
-          <Box className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <Box className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <Box>
-              <Typography variant="h4" fontWeight="800" sx={{ color: '#1e293b' }}>
+              <Typography variant="h4" fontWeight="800" sx={{ color: '#1e293b' }} className="text-center md:text-left">
                 Dashboard
               </Typography>
               <Box className="flex items-center gap-2 mt-1">
@@ -262,16 +316,26 @@ function Dashboard() {
                   <NextIcon fontSize="small" />
                 </IconButton>
 
-                <Box ml={1}>
+                <Box sx={{ width: 40, display: "flex", alignItems: "center" }}>
                   <DatePicker
                     value={refDate}
                     onChange={(val) => setRefDate(val)}
                     slotProps={{
                       textField: {
-                        size: 'small',
-                        sx: { width: 40, ".MuiInputBase-input": { display: 'none' }, ".MuiOutlinedInput-notchedOutline": { border: 'none' } }
+                        size: "small",
+                        sx: {
+                          width: 40,
+                          "& .MuiInputAdornment-root": {
+                            marginLeft: "-14px",
+                          },                          
+                        },
                       },
-                      openPickerButton: { color: 'primary' }
+                      openPickerButton: {
+                        sx: {
+                          margin: 0,
+                          color: "#35b929"
+                        },
+                      },
                     }}
                   />
                 </Box>
@@ -338,7 +402,7 @@ function Dashboard() {
                 <Box className="h-1 bg-amber-500" />
                 <CardContent className="p-6">
                   <Box className="flex justify-between items-start mb-2">
-                    <Typography className="text-gray-500 font-semibold text-sm">AVG. EXPENSE</Typography>
+                    <Typography className="text-gray-500 font-semibold text-sm">AVG. PER EXPENSE</Typography>
                     <Avatar sx={{ bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', width: 32, height: 32 }}>
                       <CategoryIcon fontSize="small" />
                     </Avatar>
@@ -355,13 +419,13 @@ function Dashboard() {
                 <Box className="h-1 bg-purple-500" />
                 <CardContent className="p-6">
                   <Box className="flex justify-between items-start mb-2">
-                    <Typography className="text-gray-500 font-semibold text-sm">MAX SINGLE</Typography>
+                    <Typography className="text-gray-500 font-semibold text-sm">AVG DAILY EXPENSE</Typography>
                     <Avatar sx={{ bgcolor: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', width: 32, height: 32 }}>
-                      <TrendingUpIcon fontSize="small" />
+                      <CalendarIcon fontSize="small" />
                     </Avatar>
                   </Box>
                   <Typography variant="h4" fontWeight="800" sx={{ color: '#1e293b' }}>
-                    Rs. {Number(stats.summary.max || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Rs. {Number(dailyAverage || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Typography>
                 </CardContent>
               </Card>
@@ -467,10 +531,10 @@ function Dashboard() {
             </Grid>
           </Grid>
 
-          {/* ---------- TABLE + FORM ---------- */}
+          {/* ---------- TABLE ---------- */}
           <Grid container spacing={4}>
             {/* Recent Transactions Table */}
-            <Grid size={{ xs: 12, md: 8 }}>
+            <Grid size={{ xs: 12 }}>
               <Paper
                 elevation={0}
                 sx={{
@@ -479,7 +543,7 @@ function Dashboard() {
                   border: "1px solid #e2e8f0",
                   display: "flex",
                   flexDirection: "column",
-                  height: 500,
+                  minHeight: 500,
                 }}
               >
                 {/* Header */}
@@ -503,7 +567,7 @@ function Dashboard() {
                   </Typography>
 
                   <Chip
-                    label={`${expenses.length} Records`}
+                    label={`${totalRecords} Total Records`}
                     sx={{
                       bgcolor: "rgba(53,185,41,0.08)",
                       color: "#35b929",
@@ -513,7 +577,7 @@ function Dashboard() {
                 </Box>
 
                 {/* Table */}
-                <TableContainer sx={{ flex: 1 }}>
+                <TableContainer sx={{ flex: 1, minHeight: 400 }}>
                   <Table stickyHeader size="medium">
                     <TableHead>
                       <TableRow>
@@ -637,7 +701,10 @@ function Dashboard() {
                               <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
                                 <IconButton
                                   size="small"
-                                  onClick={() => setEditingExpense(exp)}
+                                  onClick={() => {
+                                    setEditingExpense(exp);
+                                    setIsExpenseModalOpen(true);
+                                  }}
                                   sx={{
                                     color: "#35b929",
                                     "&:hover": { bgcolor: "rgba(53,185,41,0.1)" },
@@ -664,43 +731,73 @@ function Dashboard() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              </Paper>
-            </Grid>
 
-            {/* Form */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box className="sticky top-24">
-                {editingExpense ? (
-                  <Box className="mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <Button
-                      variant="text"
-                      size="small"
-                      onClick={() => setEditingExpense(null)}
-                      sx={{
-                        color: "#64748b",
-                        textTransform: "none",
-                        mb: 1,
-                        fontWeight: 'bold',
-                        '&:hover': { backgroundColor: 'transparent', color: '#35b929' }
-                      }}
-                    >
-                      ← Cancel Editing
-                    </Button>
-                    <ExpenseForm
-                      onSubmit={handleUpdate}
-                      initialData={editingExpense}
-                    />
-                  </Box>
-                ) : (
-                  <ExpenseForm onSubmit={handleCreate} />
-                )}
-              </Box>
+                <TablePagination
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  component="div"
+                  count={totalRecords}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  sx={{
+                    borderTop: "1px solid #f1f5f9",
+                    ".MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows": {
+                      color: "#64748b",
+                      fontWeight: 600,
+                    },
+                  }}
+                />
+              </Paper>
             </Grid>
           </Grid>
         </Container>
 
         <Footer />
       </Box>
+
+      {/* Expense Form Modal */}
+      <Dialog
+        open={isExpenseModalOpen}
+        onClose={() => {
+          setIsExpenseModalOpen(false);
+          setEditingExpense(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <Box sx={{ position: 'relative' }}>
+          <IconButton
+            onClick={() => {
+              setIsExpenseModalOpen(false);
+              setEditingExpense(null);
+            }}
+            sx={{
+              position: 'absolute',
+              right: 16,
+              top: 16,
+              color: (theme) => theme.palette.grey[500],
+              zIndex: 1
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Box sx={{ pt: 1 }}>
+            {isExpenseModalOpen && (
+              <ExpenseForm 
+                onSubmit={editingExpense ? handleUpdate : handleCreate} 
+                initialData={editingExpense} 
+              />
+            )}
+          </Box>
+        </Box>
+      </Dialog>
 
       {/* Receipt Preview Dialog */}
       <Dialog
@@ -715,11 +812,11 @@ function Dashboard() {
           }
         }}
       >
-        <Box sx={{ 
-          p: 1, 
-          display: "flex", 
-          justifyContent: "center", 
-          alignItems: "center", 
+        <Box sx={{
+          p: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
           bgcolor: "#f8fafc",
           minHeight: 400
         }}>

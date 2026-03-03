@@ -1,0 +1,38 @@
+# Backend Improvement Recommendations
+
+## 1. Category Management (Separate Table)
+**Recommendation:** YES, implement a separate `categories` table.
+- **Why:** 
+    - **Consistency:** Prevents typos (e.g., "Food" vs "food").
+    - **Metadata:** Allows you to store extra info like Category Icons or specific hex colors for the frontend charts.
+    - **Dynamic UI:** You can fetch all categories to populate the dropdown in the `ExpenseForm` automatically.
+- **Proposed Schema:**
+    ```sql
+    CREATE TABLE categories (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(50) NOT NULL,
+      color_code VARCHAR(7), -- For Recharts sync
+      icon_name VARCHAR(50)  -- For MUI icons
+    );
+    ```
+
+## 2. API Design Improvements
+- **Standardize GET Requests:** Change date range filtering from a GET-with-body to Query Parameters.
+    - *Better:* `GET /process?start=2026-02-01&end=2026-02-28`
+- **Pagination:** Implement `LIMIT` and `OFFSET` in your SQL queries.
+    - *SQL:* `SELECT * FROM expenses WHERE user_id = ? LIMIT 20 OFFSET 0;`
+- **Search:** Add a `search` query parameter to filter by description using `LIKE %query%`.
+
+## 3. Database Optimizations
+- **Indexing:** Add an index on `user_id` and `expense_date` to keep the dashboard fast as you add thousands of rows.
+- **Foreign Keys:** Ensure `user_id` in `expenses` is a foreign key to the `users` table with `ON DELETE CASCADE`.
+
+## 4. Advanced Analytics (The "Insightful" Part)
+Instead of sending 1000 rows to the frontend, create specialized endpoints:
+- **`GET /process/stats/summary`**: Returns `{ total_spent, average, count }`.
+- **`GET /process/stats/by-category`**: Returns data grouped by category (SQL `GROUP BY`).
+- **`GET /process/stats/trend`**: Returns daily/monthly totals (SQL `DATE_FORMAT`).
+
+## 5. Security
+- **Data Ownership:** Ensure every SQL query includes `WHERE user_id = current_user_id` to prevent users from seeing each other's data.
+- **Input Validation:** Use a library like `Joi` or `Zod` (if using Node.js) to validate that `amount` is always positive.
